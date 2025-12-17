@@ -148,9 +148,36 @@ export default function Login() {
 
           {/* Error Message */}
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
+            <Alert
+              variant={
+                error.includes("Correo electrónico no confirmado")
+                  ? "default"
+                  : "destructive"
+              }
+              className={`mb-4 ${
+                error.includes("Correo electrónico no confirmado")
+                  ? "bg-yellow-100 border-yellow-200 text-red-600"
+                  : ""
+              }`}
+            >
+              <AlertCircle
+                className={`h-4 w-4 ${
+                  error.includes("Correo electrónico no confirmado")
+                    ? "text-red-600"
+                    : ""
+                }`}
+              />
+              <AlertTitle
+                className={
+                  error.includes("Correo electrónico no confirmado")
+                    ? "text-red-700"
+                    : ""
+                }
+              >
+                {error.includes("Correo electrónico no confirmado")
+                  ? "Atención"
+                  : "Error"}
+              </AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
