@@ -19,6 +19,21 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getErrorMessage = (error: string) => {
+    switch (error) {
+      case "Invalid login credentials":
+        return "Credenciales incorrectas. Por favor, verifica tu correo y contraseña.";
+      case "User already registered":
+        return "El usuario ya está registrado. Intenta iniciar sesión.";
+      case "Password should be at least 6 characters":
+        return "La contraseña debe tener al menos 6 caracteres.";
+      case "Email not confirmed":
+        return "Correo electrónico no confirmado. Revisa tu bandeja de entrada.";
+      default:
+        return error;
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -50,9 +65,10 @@ export default function Login() {
         });
       }
     } catch (err: any) {
-      setError(err.message);
+      const message = getErrorMessage(err.message);
+      setError(message);
       toast.error("Error de autenticación", {
-        description: err.message,
+        description: message,
       });
     } finally {
       setLoading(false);
