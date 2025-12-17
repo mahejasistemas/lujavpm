@@ -77,11 +77,6 @@ const menuItems: MenuItem[] = [
     icon: BarChart,
   },
   {
-    title: "Configuración",
-    href: "/dashboard/configuracion",
-    icon: Settings,
-  },
-  {
     title: "Usuarios",
     href: "/dashboard/usuarios",
     icon: UserCog,
