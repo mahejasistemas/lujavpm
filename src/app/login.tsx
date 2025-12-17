@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { IoEyeOutline, IoEyeOffOutline } from "react-icons/io5";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import "./login.css";
 
 export default function Login() {
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -47,6 +49,7 @@ export default function Login() {
         toast.success("Inicio de sesión exitoso", {
           description: "Bienvenido a la plataforma.",
         });
+        router.push("/dashboard");
       } else {
         const { error } = await supabase.auth.signUp({
           email,
