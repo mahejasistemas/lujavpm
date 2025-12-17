@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Construction, LogOut, User } from "lucide-react";
+import { Construction, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -46,24 +46,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Navbar simple */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold text-[#B80000]">Plataforma Lujav</h1>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
-            <User className="h-4 w-4" />
-            <span>{userEmail}</span>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="text-gray-500 hover:text-[#B80000] transition-colors"
-            title="Cerrar sesión"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-        </div>
-      </nav>
-
       {/* Contenido principal */}
       <main className="flex-1 flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
         {/* Elementos decorativos de fondo */}
@@ -97,7 +79,15 @@ export default function Dashboard() {
           <div className="w-full bg-gray-100 rounded-full h-2.5 mb-2 overflow-hidden">
             <div className="bg-[#B80000] h-2.5 rounded-full w-[45%] animate-pulse"></div>
           </div>
-          <p className="text-xs text-gray-400 text-right">Progreso del desarrollo: 45%</p>
+          <p className="text-xs text-gray-400 text-right mb-6">Progreso del desarrollo: 45%</p>
+
+          <button
+            onClick={handleLogout}
+            className="text-gray-500 hover:text-[#B80000] text-sm font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </button>
         </div>
         
         <footer className="mt-12 text-sm text-gray-400">
