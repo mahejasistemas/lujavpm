@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { FcGoogle } from "react-icons/fc";
-import { FaFacebookF } from "react-icons/fa";
 import { IoEyeOutline, IoEyeOffOutline } from "react-icons/io5";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -75,21 +73,6 @@ export default function Login() {
     }
   };
 
-  const handleSocialLogin = async (provider: "google" | "facebook") => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      const message = getErrorMessage(err.message);
-      setError(message);
-      toast.error("Error de autenticación social", {
-        description: message,
-      });
-    }
-  };
-
   return (
     <div className="login-wrapper">
       {/* Left Side - Editorial/Branding (No Logo) */}
@@ -104,7 +87,7 @@ export default function Login() {
             Genera cotizaciones precisas, administra rutas y optimiza los <span className="brand-highlight">servicios de transporte</span> de la empresa.
           </p>
         </div>
-        <div className="absolute bottom-12 left-24 text-xs text-gray-500 opacity-40">
+        <div className="absolute bottom-12 left-24 text-xs text-white opacity-40">
           &copy; {new Date().getFullYear()} Transportes Lujav.
         </div>
       </div>
@@ -122,28 +105,6 @@ export default function Login() {
                 ? "Ingresa tus credenciales para gestionar cotizaciones."
                 : "Contacta al administrador para obtener una cuenta."}
             </p>
-          </div>
-
-          {/* Social Buttons */}
-          <div className="social-grid">
-            <button
-              className="social-btn"
-              onClick={() => handleSocialLogin("google")}
-            >
-              <FcGoogle className="h-5 w-5" />
-              <span>Google</span>
-            </button>
-            <button
-              className="social-btn"
-              onClick={() => handleSocialLogin("facebook")}
-            >
-              <FaFacebookF className="h-5 w-5 text-[#1877F2]" />
-              <span>Facebook</span>
-            </button>
-          </div>
-
-          <div className="divider">
-            <span className="divider-text">o con email</span>
           </div>
 
           {/* Error Message */}
