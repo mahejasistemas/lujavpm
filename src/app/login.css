@@ -12,7 +12,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: flex-start; /* Align text to left */
-  background-color: #EF4444; /* Red background */
+  background-color: #B80000; /* Red background */
   padding: 4rem 6rem;
   color: #ffffff;
   position: relative;
@@ -102,7 +102,7 @@
   font-size: 2rem;
   font-weight: 700;
   letter-spacing: -0.03em;
-  color: #EF4444;
+  color: #B80000;
   margin-bottom: 0.5rem;
 }
 
@@ -196,8 +196,8 @@
 .input-field:focus {
   outline: none;
   background-color: #ffffff;
-  border-color: #EF4444;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+  border-color: #B80000;
+  box-shadow: 0 0 0 4px rgba(184, 0, 0, 0.1);
 }
 
 .password-wrapper {
@@ -224,7 +224,7 @@
 .submit-btn {
   width: 100%;
   border-radius: 0.75rem;
-  background-color: #EF4444;
+  background-color: #B80000;
   padding: 1rem;
   font-size: 1rem;
   font-weight: 600;
@@ -236,9 +236,9 @@
 }
 
 .submit-btn:hover {
-  background-color: #DC2626;
+  background-color: #990000;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+  box-shadow: 0 4px 12px rgba(184, 0, 0, 0.25);
 }
 
 .toggle-text {
@@ -250,7 +250,7 @@
 
 .toggle-link {
   font-weight: 600;
-  color: #EF4444;
+  color: #B80000;
   background: none;
   border: none;
   cursor: pointer;
