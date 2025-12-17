@@ -142,9 +142,10 @@ export default function ConfiguracionPage() {
       setFormData(prev => ({ ...prev, avatarUrl: publicUrl }));
       toast.success('Avatar actualizado correctamente');
       
-    } catch (error: any) {
-      console.error('Error al subir avatar:', error);
-      if (error.message?.includes('Bucket not found')) {
+    } catch (error) {
+      const err = error as Error;
+      console.error('Error al subir avatar:', err);
+      if (err.message?.includes('Bucket not found')) {
         toast.error('Configuración faltante: El bucket "avatars" no existe en Supabase.');
       } else {
         toast.error('Error al actualizar el avatar.');
