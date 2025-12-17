@@ -82,7 +82,11 @@ export default function Login() {
       });
       if (error) throw error;
     } catch (err: any) {
-      setError(err.message);
+      const message = getErrorMessage(err.message);
+      setError(message);
+      toast.error("Error de autenticación social", {
+        description: message,
+      });
     }
   };
 
