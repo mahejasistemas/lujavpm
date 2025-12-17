@@ -80,17 +80,17 @@ export default function Dashboard() {
             <div className="bg-[#B80000] h-2.5 rounded-full w-[45%] animate-pulse"></div>
           </div>
           <p className="text-xs text-gray-400 text-right mb-6">Progreso del desarrollo: 45%</p>
-
-          <button
-            onClick={handleLogout}
-            className="text-gray-500 hover:text-[#B80000] text-sm font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
-          >
-            <LogOut className="h-4 w-4" />
-            Cerrar sesión
-          </button>
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="mt-8 text-gray-500 hover:text-[#B80000] text-sm font-medium transition-colors flex items-center justify-center gap-2"
+        >
+          <LogOut className="h-4 w-4" />
+          Cerrar sesión
+        </button>
         
-        <footer className="mt-12 text-sm text-gray-400">
+        <footer className="mt-8 text-sm text-gray-400">
           &copy; {new Date().getFullYear()} Transportes Lujav. Todos los derechos reservados.
         </footer>
       </main>
