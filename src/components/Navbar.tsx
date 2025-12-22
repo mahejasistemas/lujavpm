@@ -6,12 +6,17 @@ import { supabase } from "@/lib/supabase";
 import { 
   User, Bell, Search, ChevronRight, 
   LogOut, Settings, LayoutDashboard, 
-  Moon, Sun, Laptop, Command
+  Moon, Sun, Laptop, Command, Menu,
+  ChevronDown, Calendar, AlertTriangle,
+  CheckCircle2, Clock, Video,
+  Smile, BellOff, Palette, Keyboard, Download, HelpCircle,
+  PlusCircle, Briefcase, FileText, Sparkles, Trash2, Pin, ExternalLink,
+  Presentation, Layout, Timer, FilePlus, UserPlus, MapPin, Calculator, Truck, Wrench
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
-export default function Navbar() {
+export default function Navbar({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -99,78 +104,190 @@ export default function Navbar() {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-30 px-6 flex items-center justify-between">
-      <div className="flex items-center">
-        <nav className="flex items-center" aria-label="Breadcrumb">
-          {getBreadcrumbs()}
-        </nav>
+    <header className="h-12 bg-white border-b border-gray-200 sticky top-0 z-30 px-4 flex items-center justify-between shadow-sm">
+      <div className="flex items-center gap-4 flex-1">
+        {/* Workspace Selector */}
+        <button className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-2 py-1.5 rounded-lg transition-colors group">
+          <div className="h-5 w-5 rounded bg-[#B80000] flex items-center justify-center text-white text-[10px] font-bold">L</div>
+          <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Espacio de Trabajo Lujav</span>
+          <ChevronDown className="h-3 w-3 text-gray-500" />
+        </button>
+
+        <div className="flex items-center gap-3 ml-2 text-gray-400">
+          <Calendar className="h-4 w-4 hover:text-gray-600 cursor-pointer" />
+          <AlertTriangle className="h-4 w-4 hover:text-gray-600 cursor-pointer text-yellow-500" />
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <button className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors relative group">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border border-white opacity-0 group-hover:opacity-100 transition-opacity"></span>
-        </button>
-        
-        <div className="h-8 w-[1px] bg-gray-200 mx-2" />
+      <div className="flex items-center gap-3">
+        {/* Search Bar */}
+        <div className="hidden md:flex items-center relative group">
+          <Search className="h-4 w-4 absolute left-3 text-gray-400 group-hover:text-[#B80000] transition-colors" />
+          <input 
+            type="text" 
+            placeholder="Buscar" 
+            className="h-8 pl-9 pr-12 text-sm bg-gray-50 border-transparent rounded-full focus:ring-1 focus:ring-[#B80000]/20 focus:bg-white w-48 lg:w-64 transition-all hover:bg-gray-100"
+          />
+          <span className="absolute right-3 text-[10px] text-gray-400 font-medium"></span>
+        </div>
+
+        <div className="flex items-center gap-1 mx-2">
+           <button className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100" title="Mis Tareas">
+             <CheckCircle2 className="h-4.5 w-4.5" />
+           </button>
+           <button className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100" title="Tiempo">
+             <Clock className="h-4.5 w-4.5" />
+           </button>
+        </div>
+
+        <div className="h-5 w-[1px] bg-gray-200" />
 
         <div className="relative" ref={dropdownRef}>
           <button 
             onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center gap-3 hover:bg-gray-50 p-1.5 pr-3 rounded-xl transition-all border border-transparent hover:border-gray-200 focus:outline-none"
+            className="flex items-center gap-1 p-1 rounded-full transition-all focus:outline-none"
           >
-            <div className="flex flex-col items-end hidden sm:flex">
-              <span className="text-sm font-medium text-gray-900">{userName}</span>
-              <span className="text-xs text-gray-500">{userJobTitle}</span>
-            </div>
-            
-            <div className="h-10 w-10 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden ring-2 ring-transparent group-hover:ring-gray-200 transition-all">
+            <div className="relative">
               {avatarUrl ? (
                 <img 
                   src={avatarUrl} 
-                  alt="Avatar" 
-                  className="h-full w-full object-cover"
-                />
+                  alt={userName} 
+                  className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
+                 />
               ) : (
-                <User className="h-5 w-5 text-gray-400" />
+                <div className="h-8 w-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-medium ring-2 ring-white">
+                  {userName.substring(0, 2).toUpperCase()}
+                </div>
               )}
+              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white"></span>
             </div>
+            <ChevronDown className="h-3 w-3 text-gray-400" />
           </button>
 
           {/* Float Menu */}
           {isOpen && (
-            <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                <p className="text-sm font-semibold text-gray-900">{userName}</p>
-                <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+            <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 py-0 z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden text-sm">
+              
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+                <div className="relative">
+                  {avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={userName} 
+                      className="h-10 w-10 rounded-full object-cover"
+                     />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
+                      {userName.substring(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{userName}</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                    <p className="text-xs text-gray-500">En línea</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-2">
-                <Link 
-                  href="/dashboard" 
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Link>
-                <Link 
-                  href="/dashboard/configuracion" 
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                >
-                  <Settings className="h-4 w-4" />
-                  Configuración de Cuenta
-                </Link>
+              {/* Status & Notifications */}
+              <div className="p-2 border-b border-gray-100">
+                <button className="w-full flex items-center gap-3 px-2 py-2 text-gray-600 rounded hover:bg-gray-100 transition-colors mb-1">
+                  <Smile className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-400 font-normal">Definir estado</span>
+                </button>
+                <button className="w-full flex items-center justify-between px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <BellOff className="h-4 w-4 text-gray-500" />
+                    <span>Silenciar notificaciones</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                </button>
               </div>
 
-              <div className="p-2 border-t border-gray-100">
+              {/* Settings Section */}
+              <div className="p-2 border-b border-gray-100 space-y-0.5">
+                <Link href="/dashboard/configuracion" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors">
+                  <Settings className="h-4 w-4 text-gray-500" />
+                  <span>Ajustes de cuenta</span>
+                </Link>
+                <button className="w-full flex items-center justify-between px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Wrench className="h-4 w-4 text-gray-500" />
+                    <span>Enviar reporte a mantenimiento</span>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
+                </button>
+                <button className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors">
+                  <HelpCircle className="h-4 w-4 text-gray-500" />
+                  <span>Ayuda y Soporte</span>
+                </button>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="p-2 border-b border-gray-100">
+                <p className="px-2 py-1 text-xs font-medium text-gray-500 mb-1">Acciones Rápidas</p>
+                
+                <div className="space-y-0.5">
+                  <Link href="/dashboard/cotizaciones/nueva" onClick={() => setIsOpen(false)} className="w-full flex items-center justify-between px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors group">
+                    <div className="flex items-center gap-3">
+                      <FilePlus className="h-4 w-4 text-gray-500" />
+                      <span>Nueva Cotización</span>
+                    </div>
+                    <Pin className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 hover:text-gray-500 rotate-45" />
+                  </Link>
+                  
+                  <Link href="/dashboard/clientes/nuevo" onClick={() => setIsOpen(false)} className="w-full flex items-center justify-between px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors group">
+                    <div className="flex items-center gap-3">
+                      <UserPlus className="h-4 w-4 text-gray-500" />
+                      <span>Registrar Cliente</span>
+                    </div>
+                    <Pin className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 hover:text-gray-500 rotate-45" />
+                  </Link>
+
+                  <Link href="/dashboard/tarifario" onClick={() => setIsOpen(false)} className="w-full flex items-center justify-between px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors group">
+                    <div className="flex items-center gap-3">
+                      <Calculator className="h-4 w-4 text-gray-500" />
+                      <span>Calculadora de Tarifas</span>
+                    </div>
+                    <Pin className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 hover:text-gray-500 rotate-45" />
+                  </Link>
+
+                  <Link href="/dashboard/rutas" onClick={() => setIsOpen(false)} className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors">
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <span>Ver Rutas Activas</span>
+                  </Link>
+
+                  <Link href="/dashboard/flota" onClick={() => setIsOpen(false)} className="w-full flex items-center justify-between px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors group">
+                    <div className="flex items-center gap-3">
+                      <Truck className="h-4 w-4 text-gray-500" />
+                      <span>Estado de Flota</span>
+                    </div>
+                    <Pin className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 hover:text-gray-500 rotate-45" />
+                  </Link>
+
+                  <button className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors">
+                    <AlertTriangle className="h-4 w-4 text-gray-500" />
+                    <span>Reportar Incidencia</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-2 bg-gray-50/50">
+                <Link href="/dashboard/usuarios" onClick={() => setIsOpen(false)} className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors">
+                  <User className="h-4 w-4 text-gray-500" />
+                  <span>Mi Perfil</span>
+                </Link>
                 <button 
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 rounded hover:bg-gray-100 transition-colors"
                 >
-                  <LogOut className="h-4 w-4" />
-                  Cerrar Sesión
+                  <LogOut className="h-4 w-4 text-gray-500" />
+                  <span>Cerrar sesión</span>
                 </button>
               </div>
             </div>

@@ -52,11 +52,6 @@ const menuItems: MenuItem[] = [
     icon: Users,
   },
   {
-    title: "Flota (Camiones)",
-    href: "/dashboard/flota",
-    icon: Truck,
-  },
-  {
     title: "Rutas",
     href: "/dashboard/rutas",
     icon: MapPin,
@@ -75,12 +70,6 @@ const menuItems: MenuItem[] = [
     title: "Reportes",
     href: "/dashboard/reportes",
     icon: BarChart,
-  },
-  {
-    title: "Usuarios",
-    href: "/dashboard/usuarios",
-    icon: UserCog,
-    // TODO: Mostrar solo para super usuarios
   },
 ];
 
@@ -106,83 +95,59 @@ export default function Sidebar() {
     submenu.some(item => pathname === item.href);
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-gray-200 bg-white transition-transform">
-      <div className="flex h-16 items-center border-b border-gray-200 px-6">
-        <span className="text-xl font-bold text-[#B80000]">
-          Lujav <span className="text-gray-900">Plataforma</span>
+    <aside 
+      className="fixed left-0 top-0 z-40 h-screen w-20 border-r border-gray-200 bg-white"
+    >
+      <div className="flex h-16 items-center justify-center border-b border-gray-200">
+        <span className="text-xl font-bold text-white bg-[#B80000] h-8 w-8 rounded flex items-center justify-center">
+          L
         </span>
       </div>
 
       <div className="flex flex-col justify-between h-[calc(100vh-4rem)]">
-        <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
+        <nav className="flex-1 space-y-1 px-3 py-4 overflow-hidden flex flex-col items-center">
           {menuItems.map((item) => (
-            <div key={item.title}>
+            <div key={item.title} className="w-full flex justify-center">
               {item.submenu ? (
-                <div>
+                // Submenus logic simplified for icon-only mode
+                 <div title={item.title}>
                   <button
                     onClick={() => toggleSubmenu(item.title)}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-red-50 hover:text-[#B80000]",
+                      "flex items-center justify-center rounded-lg p-3 text-sm font-medium transition-colors hover:bg-gray-100 hover:text-gray-900",
                       isSubmenuActive(item.submenu) || openSubmenus[item.title]
-                        ? "text-[#B80000]" 
-                        : "text-gray-700"
+                        ? "text-[#B80000] bg-red-50" 
+                        : "text-gray-500"
                     )}
                   >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </div>
-                    {openSubmenus[item.title] ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
+                     <item.icon className="h-5 w-5" />
                   </button>
-                  
-                  {openSubmenus[item.title] && (
-                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 pl-2">
-                      {item.submenu.map((subItem) => (
-                        <Link
-                          key={subItem.href}
-                          href={subItem.href}
-                          className={cn(
-                            "block rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-red-50 hover:text-[#B80000]",
-                            isActive(subItem.href)
-                              ? "bg-red-50 text-[#B80000]"
-                              : "text-gray-600"
-                          )}
-                        >
-                          {subItem.title}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                 </div>
               ) : (
                 <Link
                   href={item.href!}
+                  title={item.title}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-red-50 hover:text-[#B80000]",
+                    "flex items-center justify-center rounded-lg p-3 text-sm font-medium transition-colors hover:bg-gray-100 hover:text-gray-900",
                     isActive(item.href!)
-                      ? "bg-red-50 text-[#B80000]"
-                      : "text-gray-700"
+                      ? "bg-[#B80000] text-white"
+                      : "text-gray-500"
                   )}
                 >
                   <item.icon className="h-5 w-5" />
-                  <span>{item.title}</span>
                 </Link>
               )}
             </div>
           ))}
         </nav>
 
-        <div className="border-t border-gray-200 p-4">
+        <div className="border-t border-gray-200 p-4 flex justify-center">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-red-50 hover:text-[#B80000]"
+            title="Cerrar sesión"
+            className="flex items-center justify-center rounded-lg p-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
           >
             <LogOut className="h-5 w-5" />
-            <span>Cerrar sesión</span>
           </button>
         </div>
       </div>

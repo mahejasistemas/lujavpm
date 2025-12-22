@@ -4,14 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { 
-  User, Briefcase, Mail, Camera, Save, Loader2, 
-  Shield, Bell, Palette, Lock, Smartphone, MapPin, 
-  Globe, Moon, Sun, Laptop, Building2, Clock, Phone,
-  ChevronRight, Layout, ChevronDown
+  User, Mail, Camera, Loader2, 
+  Bell, Lock, Briefcase, Phone, Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Tab = "profile" | "security" | "notifications" | "appearance";
+
+type Tab = "profile" | "security" | "notifications";
 
 export default function ConfiguracionPage() {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -23,24 +22,27 @@ export default function ConfiguracionPage() {
   // Profile Form Data
   const [formData, setFormData] = useState({
     fullName: "",
+    email: "",
+    avatarUrl: "",
+    // Extra fields for preservation
     preferredName: "",
     jobTitle: "",
-    email: "",
-    alternateEmail: "",
     phone: "",
-    workPhone: "",
-    extension: "",
     location: "",
-    officeLocation: "",
-    timezone: "",
-    bio: "",
-    avatarUrl: ""
+    timezone: "America/Mexico_City",
+    birthDate: "",
   });
 
   // Password Form Data
   const [passwordData, setPasswordData] = useState({
     newPassword: "",
     confirmPassword: ""
+  });
+
+  // Security Settings (2FA)
+  const [twoFactor, setTwoFactor] = useState({
+    sms: false,
+    authenticator: false
   });
 
   // Notifications Settings
@@ -53,31 +55,25 @@ export default function ConfiguracionPage() {
   useEffect(() => {
     const getUser = async () => {
       try {
-        // Debug: List buckets to verify connection and existence
-        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-        console.log("Buckets disponibles:", buckets);
-        if (bucketsError) console.error("Error al listar buckets:", bucketsError);
-
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setFormData({
             fullName: user.user_metadata?.full_name || "",
+            email: user.email || "",
+            avatarUrl: user.user_metadata?.avatar_url || "",
             preferredName: user.user_metadata?.preferred_name || "",
             jobTitle: user.user_metadata?.job_title || "",
-            email: user.email || "",
-            alternateEmail: user.user_metadata?.alternate_email || "",
             phone: user.user_metadata?.phone || "",
-            workPhone: user.user_metadata?.work_phone || "",
-            extension: user.user_metadata?.extension || "",
             location: user.user_metadata?.location || "",
-            officeLocation: user.user_metadata?.office_location || "",
-            timezone: user.user_metadata?.timezone || "",
-            bio: user.user_metadata?.bio || "",
-            avatarUrl: user.user_metadata?.avatar_url || ""
+            timezone: user.user_metadata?.timezone || "America/Mexico_City",
+            birthDate: user.user_metadata?.birth_date || "",
           });
           
           if (user.user_metadata?.notifications) {
             setNotifications(user.user_metadata.notifications);
+          }
+          if (user.user_metadata?.twoFactor) {
+            setTwoFactor(user.user_metadata.twoFactor);
           }
         }
       } catch (error) {
@@ -119,12 +115,9 @@ export default function ConfiguracionPage() {
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // Upload to 'avatars' bucket
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, {
-          upsert: true
-        });
+        .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -132,7 +125,6 @@ export default function ConfiguracionPage() {
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // Update user metadata
       const { error: updateError } = await supabase.auth.updateUser({
         data: { avatar_url: publicUrl }
       });
@@ -143,95 +135,58 @@ export default function ConfiguracionPage() {
       toast.success('Avatar actualizado correctamente');
       
     } catch (error) {
-      const err = error as Error;
-      console.error('Error al subir avatar:', err);
-      if (err.message?.includes('Bucket not found')) {
-        toast.error('Configuración faltante: El bucket "avatars" no existe en Supabase.');
-      } else {
-        toast.error('Error al actualizar el avatar.');
-      }
+      console.error('Error al subir avatar:', error);
+      toast.error('Error al actualizar el avatar');
     } finally {
       setUploadingAvatar(false);
     }
   };
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveProfile = async () => {
     setSaving(true);
-
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { error: profileError } = await supabase.auth.updateUser({
         data: {
           full_name: formData.fullName,
-          preferred_name: formData.preferredName,
-          job_title: formData.jobTitle,
-          alternate_email: formData.alternateEmail,
-          phone: formData.phone,
-          work_phone: formData.workPhone,
-          extension: formData.extension,
-          location: formData.location,
-          office_location: formData.officeLocation,
-          timezone: formData.timezone,
-          bio: formData.bio,
-          avatar_url: formData.avatarUrl
+          timezone: formData.timezone
         }
       });
-
-      if (error) throw error;
-
+      if (profileError) throw profileError;
       toast.success("Perfil actualizado correctamente");
     } catch (error) {
-      console.error("Error al actualizar perfil:", error);
+      console.error("Error al guardar perfil:", error);
       toast.error("Error al guardar los cambios");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("Las contraseñas no coinciden");
-      return;
-    }
-    
-    if (passwordData.newPassword.length < 6) {
-      toast.error("La contraseña debe tener al menos 6 caracteres");
-      return;
-    }
-
+  const handleSaveSecurity = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: passwordData.newPassword
-      });
+      const updates: any = {
+        data: { twoFactor: twoFactor }
+      };
 
-      if (error) throw error;
-
-      toast.success("Contraseña actualizada correctamente");
-      setPasswordData({ newPassword: "", confirmPassword: "" });
-    } catch (error) {
-      console.error("Error al actualizar contraseña:", error);
-      toast.error("Error al actualizar la contraseña");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleUpdateNotifications = async () => {
-    setSaving(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          notifications: notifications
+      if (passwordData.newPassword) {
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+          toast.error("Las contraseñas no coinciden");
+          setSaving(false);
+          return;
         }
-      });
+        updates.password = passwordData.newPassword;
+      }
 
+      const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
-      toast.success("Preferencias de notificaciones guardadas");
+      
+      if (passwordData.newPassword) {
+        setPasswordData({ newPassword: "", confirmPassword: "" });
+      }
+      toast.success("Ajustes de seguridad actualizados");
     } catch (error) {
-      console.error("Error al guardar notificaciones:", error);
-      toast.error("Error al guardar preferencias");
+      console.error("Error al guardar seguridad:", error);
+      toast.error("Error al guardar los cambios de seguridad");
     } finally {
       setSaving(false);
     }
@@ -245,48 +200,73 @@ export default function ConfiguracionPage() {
     );
   }
 
-  const tabs = [
-    { id: "profile", label: "Mi Perfil", description: "Información personal y contacto", icon: User },
-    { id: "security", label: "Seguridad", description: "Contraseña y autenticación", icon: Shield },
-    { id: "notifications", label: "Notificaciones", description: "Preferencias de alertas", icon: Bell },
-    { id: "appearance", label: "Apariencia", description: "Tema y visualización", icon: Palette },
+  // Sidebar Configuration
+  const sidebarSections = [
+    {
+      title: "Mis ajustes",
+      items: [
+        { id: "profile", label: "Mi Perfil", icon: User },
+        { id: "security", label: "Seguridad", icon: Lock },
+        { id: "notifications", label: "Notificaciones", icon: Bell },
+      ]
+    }
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Configuración de Cuenta</h1>
-
-        <div className="flex flex-col lg:flex-row gap-12">
+    <div className="min-h-screen bg-gray-50/30">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
+          
           {/* Sidebar Navigation */}
           <aside className="w-full lg:w-64 flex-shrink-0">
-            <nav className="space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as Tab)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                    activeTab === tab.id
-                      ? "text-gray-900 font-semibold"
-                      : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                  )}
-                >
-                  {tab.label}
-                </button>
+            <div className="mb-6">
+               <h1 className="text-xl font-bold text-gray-900">Ajustes</h1>
+            </div>
+            
+            <nav className="space-y-8">
+              {sidebarSections.map((section, idx) => (
+                <div key={idx}>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-3">
+                    {section.title}
+                  </h3>
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id as Tab)}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                          activeTab === item.id
+                            ? "text-[#B80000] bg-red-50"
+                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </nav>
           </aside>
 
           {/* Main Content Area */}
-          <div className="flex-1 space-y-8">
+          <main className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 min-h-[600px] p-8">
+            
             {activeTab === "profile" && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                
-                {/* Avatar Card */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-6 flex flex-row items-center gap-6">
-                    <div className="relative group cursor-pointer shrink-0" onClick={handleAvatarClick}>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Mi Perfil</h2>
+                  <p className="text-sm text-gray-500 mt-1">Gestiona tu información personal</p>
+                </div>
+
+                {/* Avatar */}
+                <div className="flex items-center gap-6 pb-6 border-b border-gray-100">
+                    <div 
+                      className="relative group cursor-pointer"
+                      onClick={handleAvatarClick}
+                    >
                       <input 
                         type="file" 
                         ref={fileInputRef} 
@@ -294,279 +274,280 @@ export default function ConfiguracionPage() {
                         className="hidden" 
                         accept="image/*"
                       />
-                      <div className="h-24 w-24 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 relative">
+                      <div className="h-24 w-24 rounded-full bg-gray-900 text-white flex items-center justify-center text-3xl font-medium overflow-hidden ring-4 ring-gray-50">
                         {formData.avatarUrl ? (
                           <img 
                             src={formData.avatarUrl} 
-                            alt="Profile" 
-                            className="h-full w-full object-cover bg-white"
+                            alt="Avatar" 
+                            className="h-full w-full object-cover"
                           />
                         ) : (
-                          <span className="text-gray-400 font-bold text-3xl">
-                            {formData.fullName?.charAt(0) || "U"}
-                          </span>
+                          formData.fullName.substring(0, 2).toUpperCase()
                         )}
                         {uploadingAvatar && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-                            <Loader2 className="h-8 w-8 text-white animate-spin" />
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin text-white" />
                           </div>
                         )}
                       </div>
-                      <div className="absolute inset-0 rounded-full bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
-                        <Camera className="h-8 w-8 text-white drop-shadow-md" />
+                      <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Camera className="h-8 w-8 text-white" />
                       </div>
                     </div>
-                    <div className="space-y-1 flex-1">
-                      <h3 className="text-lg font-medium text-gray-900">Avatar</h3>
-                      <p className="text-sm text-gray-500">
-                        Este es tu avatar. Haz clic en la imagen para subir uno nuevo.
-                      </p>
+                    <div>
+                      <h3 className="font-medium text-gray-900 text-lg">{formData.fullName || "Usuario"}</h3>
+                      <p className="text-gray-500 text-sm">Espacio de Trabajo Lujav</p>
+                      <button 
+                        onClick={handleAvatarClick}
+                        className="mt-2 text-sm text-[#B80000] font-medium hover:text-[#900000]"
+                      >
+                        Cambiar foto de perfil
+                      </button>
                     </div>
-                  </div>
-                  <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-xs text-gray-500">
-                    Un avatar es opcional pero muy recomendado.
-                  </div>
                 </div>
 
-                {/* Display Name Card */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-6 space-y-4">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">Nombre para mostrar</h3>
-                      <p className="text-sm text-gray-500">
-                        Ingresa tu nombre completo o el nombre con el que te sientas cómodo.
-                      </p>
-                    </div>
-                    <div className="max-w-md">
+                <div className="grid gap-6 max-w-xl">
+                  {/* Full Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre completo</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                       <input
                         type="text"
                         value={formData.fullName}
                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                        className="w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-sm"
-                        placeholder="Ej. Transportes Lujav"
+                        className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 focus:border-[#B80000] focus:ring-1 focus:ring-[#B80000] outline-none transition-all text-sm"
+                        placeholder="Tu nombre completo"
                       />
                     </div>
                   </div>
-                  <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex justify-between items-center">
-                    <p className="text-xs text-gray-500">Por favor usa máximo 32 caracteres.</p>
-                    <button
-                      onClick={handleUpdateProfile}
-                      disabled={saving}
-                      className="px-4 py-2 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50"
-                    >
-                      {saving ? "Guardando..." : "Guardar"}
-                    </button>
-                  </div>
-                </div>
 
-                {/* Job Title Card */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-6 space-y-4">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">Cargo</h3>
-                      <p className="text-sm text-gray-500">
-                        Tu puesto o rol dentro de la empresa.
-                      </p>
-                    </div>
-                    <div className="max-w-md">
-                      <input
-                        type="text"
-                        value={formData.jobTitle}
-                        onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                        className="w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-sm"
-                        placeholder="Ej. Gerente de Operaciones"
-                      />
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex justify-end">
-                    <button
-                      onClick={handleUpdateProfile}
-                      disabled={saving}
-                      className="px-4 py-2 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50"
-                    >
-                      {saving ? "Guardando..." : "Guardar"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Office Location Card */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-6 space-y-4">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">Oficina / Sucursal</h3>
-                      <p className="text-sm text-gray-500">
-                        Selecciona la sucursal principal a la que perteneces.
-                      </p>
-                    </div>
-                    <div className="max-w-md relative">
-                      <select
-                        value={formData.officeLocation}
-                        onChange={(e) => setFormData({ ...formData, officeLocation: e.target.value })}
-                        className="w-full pl-3 pr-10 py-2 rounded-md border border-gray-300 shadow-sm focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-sm bg-white appearance-none cursor-pointer"
-                      >
-                        <option value="">Selecciona una sucursal</option>
-                        <option value="Veracruz">Veracruz</option>
-                        <option value="Altamira">Altamira</option>
-                        <option value="Puebla">Puebla</option>
-                        <option value="Monterrey">Monterrey</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex justify-end">
-                    <button
-                      onClick={handleUpdateProfile}
-                      disabled={saving}
-                      className="px-4 py-2 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50"
-                    >
-                      {saving ? "Guardando..." : "Guardar"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Email Card */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-6 space-y-4">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">Correo Electrónico</h3>
-                      <p className="text-sm text-gray-500">
-                        Dirección de correo electrónico asociada a tu cuenta.
-                      </p>
-                    </div>
-                    <div className="max-w-md">
+                  {/* Email */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                       <input
                         type="email"
                         value={formData.email}
                         disabled
-                        className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed text-sm"
+                        className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed text-sm"
                       />
                     </div>
                   </div>
-                  <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-xs text-gray-500">
-                    Contacta al administrador para cambiar tu correo.
+
+                  {/* Job Title */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Puesto</label>
+                    <div className="relative">
+                      <Briefcase className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={formData.jobTitle}
+                        onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                        className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 focus:border-[#B80000] focus:ring-1 focus:ring-[#B80000] outline-none transition-all text-sm"
+                        placeholder="Ej. Desarrollador Senior"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Número de teléfono</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 focus:border-[#B80000] focus:ring-1 focus:ring-[#B80000] outline-none transition-all text-sm"
+                        placeholder="+52 000 000 0000"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Birth Date */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Fecha de nacimiento</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="date"
+                        value={formData.birthDate}
+                        onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                        className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 focus:border-[#B80000] focus:ring-1 focus:ring-[#B80000] outline-none transition-all text-sm"
+                      />
+                    </div>
                   </div>
                 </div>
 
+                <div className="pt-4 flex justify-end">
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                    className="px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? "Guardando..." : "Guardar cambios"}
+                  </button>
+                </div>
               </div>
             )}
 
             {activeTab === "security" && (
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-200">
-                   <h3 className="text-lg font-medium text-gray-900">Seguridad</h3>
-                   <p className="text-sm text-gray-500">Gestiona tu contraseña.</p>
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Seguridad</h2>
+                  <p className="text-sm text-gray-500 mt-1">Gestiona tu contraseña y la autenticación de dos factores</p>
                 </div>
-                <div className="p-6">
-                    <form onSubmit={handleUpdatePassword} className="space-y-4 max-w-md">
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 block mb-1">Nueva Contraseña</label>
+
+                <section className="space-y-6 max-w-xl">
+                   <h3 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2">Cambiar contraseña</h3>
+                   
+                   {/* Password */}
+                   <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Nueva contraseña</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                           <input
                             type="password"
                             value={passwordData.newPassword}
                             onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                            className="w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-black focus:ring-1 focus:ring-black outline-none text-sm"
-                            placeholder="••••••••"
+                            className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 focus:border-[#B80000] focus:ring-1 focus:ring-[#B80000] outline-none transition-all text-sm"
+                            placeholder="Introduce nueva contraseña"
                           />
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 block mb-1">Confirmar Contraseña</label>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirmar contraseña</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                           <input
                             type="password"
                             value={passwordData.confirmPassword}
                             onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                            className="w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-black focus:ring-1 focus:ring-black outline-none text-sm"
-                            placeholder="••••••••"
+                            className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 focus:border-[#B80000] focus:ring-1 focus:ring-[#B80000] outline-none transition-all text-sm"
+                            placeholder="Confirma nueva contraseña"
                           />
                         </div>
-                        <button
-                          type="submit"
-                          disabled={saving}
-                          className="px-4 py-2 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50"
-                        >
-                          {saving ? "Actualizando..." : "Actualizar Contraseña"}
-                        </button>
-                    </form>
+                      </div>
+                   </div>
+                </section>
+
+                <section className="space-y-6 pt-6">
+                  <h3 className="text-base font-semibold text-gray-900 border-b border-gray-100 pb-2">Autenticación de dos factores (2FA)</h3>
+                  
+                  <div className="space-y-6">
+                    {/* SMS Toggle */}
+                    <div className="flex items-start justify-between">
+                      <div className="pr-4">
+                        <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          Mensaje de texto (SMS)
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Recibe un código de acceso por SMS al iniciar sesión.
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => setTwoFactor(prev => ({ ...prev, sms: !prev.sms }))}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+                          twoFactor.sms ? "bg-[#B80000]" : "bg-gray-200"
+                        )}
+                      >
+                        <span className={cn(
+                          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm",
+                          twoFactor.sms ? "translate-x-6" : "translate-x-1"
+                        )} />
+                      </button>
+                    </div>
+
+                    {/* Authenticator App Toggle */}
+                    <div className="flex items-start justify-between">
+                      <div className="pr-4">
+                        <h4 className="text-sm font-medium text-gray-900">Aplicación de autenticación</h4>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Usa una app como Google Authenticator o Authy.
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => setTwoFactor(prev => ({ ...prev, authenticator: !prev.authenticator }))}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+                          twoFactor.authenticator ? "bg-[#B80000]" : "bg-gray-200"
+                        )}
+                      >
+                        <span className={cn(
+                          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm",
+                          twoFactor.authenticator ? "translate-x-6" : "translate-x-1"
+                        )} />
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
+                <div className="pt-4 flex justify-end">
+                  <button
+                    onClick={handleSaveSecurity}
+                    disabled={saving}
+                    className="px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? "Guardando..." : "Guardar cambios"}
+                  </button>
                 </div>
               </div>
             )}
 
-             {activeTab === "notifications" && (
-                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900">Notificaciones</h3>
-                        <p className="text-sm text-gray-500">Gestiona tus preferencias de alertas.</p>
+            {activeTab === "notifications" && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">Notificaciones</h2>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Elige qué notificaciones quieres recibir y cómo.
+                        </p>
                     </div>
-                    <div className="p-6 space-y-6">
-                        {/* Reusing the notification logic but styled simpler */}
-                         {[
-                        { 
-                          id: 'email', 
-                          title: 'Alertas por Correo', 
-                          desc: 'Recibe notificaciones sobre actividad importante.',
-                          state: notifications.emailAlerts,
-                          setter: () => setNotifications(prev => ({ ...prev, emailAlerts: !prev.emailAlerts }))
-                        },
-                        { 
-                          id: 'push', 
-                          title: 'Notificaciones Push', 
-                          desc: 'Recibe alertas en tiempo real en tu navegador.',
-                          state: notifications.pushNotifications,
-                          setter: () => setNotifications(prev => ({ ...prev, pushNotifications: !prev.pushNotifications }))
-                        }
-                      ].map((item) => (
-                        <div key={item.id} className="flex items-center justify-between">
-                          <div className="pr-8">
-                            <h4 className="text-sm font-medium text-gray-900">{item.title}</h4>
-                            <p className="text-xs text-gray-500">{item.desc}</p>
-                          </div>
-                           <button 
-                            onClick={item.setter}
-                            className={cn(
-                              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
-                              item.state ? "bg-black" : "bg-gray-200"
-                            )}
-                          >
-                            <span className={cn(
-                              "inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm",
-                              item.state ? "translate-x-6" : "translate-x-1"
-                            )} />
-                          </button>
+                    {/* Simplified Notification List */}
+                     <div className="space-y-6 max-w-2xl">
+                        <div className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-900">Alertas por correo electrónico</h3>
+                                <p className="text-xs text-gray-500 mt-1">Recibe resúmenes semanales y alertas de seguridad.</p>
+                            </div>
+                            <button 
+                                onClick={() => setNotifications(prev => ({ ...prev, emailAlerts: !prev.emailAlerts }))}
+                                className={cn(
+                                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+                                notifications.emailAlerts ? "bg-[#B80000]" : "bg-gray-200"
+                                )}
+                            >
+                                <span className={cn(
+                                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm",
+                                notifications.emailAlerts ? "translate-x-6" : "translate-x-1"
+                                )} />
+                            </button>
                         </div>
-                      ))}
-                      <div className="pt-4">
-                          <button
-                          onClick={handleUpdateNotifications}
-                          disabled={saving}
-                          className="px-4 py-2 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50"
-                        >
-                          {saving ? "Guardando..." : "Guardar Preferencias"}
-                        </button>
-                      </div>
-                    </div>
-                 </div>
-             )}
-
-             {activeTab === "appearance" && (
-                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                     <div className="p-6 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900">Apariencia</h3>
-                        <p className="text-sm text-gray-500">Personaliza la interfaz.</p>
-                    </div>
-                    <div className="p-6">
-                        <div className="grid grid-cols-3 gap-4">
-                             <div className="border border-gray-200 rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-black transition-colors">
-                                 <Sun className="h-6 w-6 text-gray-900" />
-                                 <span className="text-sm font-medium">Claro</span>
-                             </div>
-                              <div className="border border-gray-200 rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-black transition-colors bg-gray-50">
-                                 <Moon className="h-6 w-6 text-gray-900" />
-                                 <span className="text-sm font-medium">Oscuro</span>
-                             </div>
+                        <div className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-900">Notificaciones Push</h3>
+                                <p className="text-xs text-gray-500 mt-1">Recibe alertas en tiempo real en tu navegador.</p>
+                            </div>
+                            <button 
+                                onClick={() => setNotifications(prev => ({ ...prev, pushNotifications: !prev.pushNotifications }))}
+                                className={cn(
+                                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+                                notifications.pushNotifications ? "bg-[#B80000]" : "bg-gray-200"
+                                )}
+                            >
+                                <span className={cn(
+                                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm",
+                                notifications.pushNotifications ? "translate-x-6" : "translate-x-1"
+                                )} />
+                            </button>
                         </div>
-                    </div>
-                 </div>
-             )}
-          </div>
+                     </div>
+                </div>
+            )}
+          </main>
         </div>
       </div>
     </div>
