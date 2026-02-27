@@ -1,28 +1,25 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Loader2, Briefcase, MapPin, Users, Calendar, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { supabase } from "@/lib/supabaseClient";
+import { Button } from "@/components/ui/button";
 import {
-  Search,
-  Plus,
-  MoreHorizontal,
-  ArrowUpDown,
-  User,
-  Building2,
-  ChevronDown,
-  X,
-  FileText,
-  Calculator,
-  Calendar,
-  MapPin,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Upload,
-  Phone,
-  Mail,
-  BarChart3,
-  MessageSquare
-} from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -31,1388 +28,383 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ClientsCharts } from "@/components/ClientsCharts";
-import { supabase } from "@/lib/supabaseClient";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-interface Client {
+interface Workspace {
   id: string;
   name: string;
-  company: string;
-  date: string;
-  location: string;
-  status: "completado" | "en_proceso" | "sin_exito";
-  serviceType: string;
-  quotesCount: number;
-  reports: { id: number; title: string; date: string }[];
-  logo?: string;
-  phone?: string;
-  email?: string;
-  createdAt?: string;
+  base: string;
+  created_by: string;
+  created_at: string;
+  members: WorkspaceMember[];
 }
 
-interface Company {
+interface WorkspaceMember {
+  user_id: string;
+  role: string;
+  profile?: UserProfile;
+}
+
+interface UserProfile {
   id: string;
-  name: string;
-  employeesCount: number;
-  logo?: string;
+  full_name: string;
+  email: string;
+  avatar_url?: string;
 }
 
-const LOCATIONS = {
-  "México": ["Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas", "Chihuahua", "Ciudad de México", "Coahuila", "Colima", "Durango", "Guanajuato", "Guerrero", "Hidalgo", "Jalisco", "Estado de México", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas"],
-  "Estados Unidos": ["Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"],
-  "Colombia": ["Amazonas", "Antioquia", "Arauca", "Atlántico", "Bolívar", "Boyacá", "Caldas", "Caquetá", "Casanare", "Cauca", "Cesar", "Chocó", "Córdoba", "Cundinamarca", "Guainía", "Guaviare", "Huila", "La Guajira", "Magdalena", "Meta", "Nariño", "Norte de Santander", "Putumayo", "Quindío", "Risaralda", "San Andrés y Providencia", "Santander", "Sucre", "Tolima", "Valle del Cauca", "Vaupés", "Vichada"],
-  "Perú": ["Amazonas", "Áncash", "Apurímac", "Arequipa", "Ayacucho", "Cajamarca", "Callao", "Cusco", "Huancavelica", "Huánuco", "Ica", "Junín", "La Libertad", "Lambayeque", "Lima", "Loreto", "Madre de Dios", "Moquegua", "Pasco", "Piura", "Puno", "San Martín", "Tacna", "Tumbes", "Ucayali"],
-  "Argentina": ["Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"],
-  "Chile": ["Arica y Parinacota", "Tarapacá", "Antofagasta", "Atacama", "Coquimbo", "Valparaíso", "Metropolitana", "O'Higgins", "Maule", "Ñuble", "Biobío", "Araucanía", "Los Ríos", "Los Lagos", "Aysén", "Magallanes"],
-  "España": ["Andalucía", "Aragón", "Asturias", "Baleares", "Canarias", "Cantabria", "Castilla-La Mancha", "Castilla y León", "Cataluña", "Extremadura", "Galicia", "Madrid", "Murcia", "Navarra", "País Vasco", "La Rioja", "Valencia"]
-};
-
-export default function ClientsPage() {
-  // Clients state
-  const [clients, setClients] = useState<Client[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+export default function EquiposPage() {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<"clientes" | "empresas" | "graficos">("clientes");
-  const [menuClientId, setMenuClientId] = useState<string | null>(null);
-  const [loadingCompanies, setLoadingCompanies] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortOption, setSortOption] = useState<"recent" | "name_asc" | "name_desc" | "quotes_desc">("recent");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
 
-  const companyLogos = useMemo(() => {
-    const logos: Record<string, string> = {};
-    clients.forEach((client) => {
-      if (client.company && client.logo && !logos[client.company]) {
-        logos[client.company] = client.logo;
-      }
-    });
-    return logos;
-  }, [clients]);
+  // Create Workspace State
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newBase, setNewBase] = useState("");
+  const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
-  const uniqueCompanyNames = useMemo(
-    () =>
-      Array.from(new Set(companies.map((company) => company.name))).sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [companies],
-  );
-
-  // Load clients from Supabase
   useEffect(() => {
-    const fetchClients = async () => {
-      if (!supabase) return;
-      
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .order('created_at', { ascending: false });
-        
-      if (error) {
-        console.error("Error fetching clients:", error);
-        toast.error("Error al cargar clientes");
-        setLoading(false);
-        return;
-      }
-      
-      if (data) {
-        const mappedClients: Client[] = data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          company: item.company,
-          date: item.date ? new Date(item.date).toLocaleDateString() : '',
-          location: item.location || '',
-          status: item.status as any,
-          serviceType: item.service_type || '',
-          quotesCount: item.quotes_count || 0,
-          reports: [],
-          logo: item.logo,
-          phone: item.phone,
-          email: item.email,
-          createdAt: item.created_at
-        }));
-        setClients(mappedClients);
-      }
+    checkUser();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchData();
+    }
+  }, [currentUser, isAdmin]);
+
+  const checkUser = async () => {
+    if (!supabase) {
       setLoading(false);
-    };
-
-    fetchClients();
-    
-    // Subscribe to changes
-    let channel: any;
-    if (supabase) {
-      channel = supabase
-        .channel('clients_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => {
-          fetchClients();
-        })
-        .subscribe();
-    }
-        
-    return () => {
-      if (channel) supabase?.removeChannel(channel);
-    };
-  }, []);
-
-  // Load companies from Supabase
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      if (!supabase) {
-        setLoadingCompanies(false);
-        return;
-      }
-      
-      const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .order('name', { ascending: true });
-        
-      if (error) {
-        console.error("Error fetching companies:", error);
-        setLoadingCompanies(false);
-        return;
-      }
-      
-      if (data) {
-        const mappedCompanies: Company[] = data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          employeesCount: item.employees_count || 1,
-          logo: item.logo
-        }));
-        setCompanies(mappedCompanies);
-      }
-      setLoadingCompanies(false);
-    };
-
-    fetchCompanies();
-
-    let channel: any;
-    if (supabase) {
-      channel = supabase
-        .channel('companies_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, () => {
-          fetchCompanies();
-        })
-        .subscribe();
-    }
-        
-    return () => {
-      if (channel) supabase?.removeChannel(channel);
-    };
-  }, []);
-  
-  // Create Client State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newClientData, setNewClientData] = useState({
-    name: "",
-    company: "",
-    country: "",
-    region: "",
-    logo: "",
-    phoneCode: "+52",
-    phoneNumber: "",
-    email: "",
-    serviceType: "Carga General"
-  });
-  const [companySelectionMode, setCompanySelectionMode] = useState<"existing" | "new">("new");
-
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [editClientData, setEditClientData] = useState({
-    name: "",
-    company: "",
-    country: "",
-    region: "",
-    logo: "",
-    phoneCode: "+52",
-    phoneNumber: "",
-    email: "",
-    serviceType: "Carga General"
-  });
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewClientData(prev => ({ ...prev, logo: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleEditLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditClientData(prev => ({ ...prev, logo: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const clientMetrics = useMemo(() => {
-    const total = clients.length;
-    const active = clients.filter((client) => client.status !== "sin_exito").length;
-
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const isSameMonth = (date: Date) =>
-      date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-
-    const parseClientDate = (client: Client): Date | null => {
-      if (client.createdAt) {
-        const d = new Date(client.createdAt);
-        if (!isNaN(d.getTime())) return d;
-      }
-      if (client.date) {
-        const d = new Date(client.date);
-        if (!isNaN(d.getTime())) return d;
-      }
-      return null;
-    };
-
-    const newThisMonth = clients.filter((client) => {
-      const d = parseClientDate(client);
-      if (!d) return false;
-      return isSameMonth(d);
-    }).length;
-
-    return {
-      total,
-      active,
-      newThisMonth,
-    };
-  }, [clients]);
-
-  const filteredAndSortedClients = useMemo(() => {
-    let result = [...clients];
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter((client) => {
-        const name = client.name?.toLowerCase() ?? "";
-        const company = client.company?.toLowerCase() ?? "";
-        const email = client.email?.toLowerCase() ?? "";
-        return (
-          name.includes(q) ||
-          company.includes(q) ||
-          email.includes(q)
-        );
-      });
-    }
-
-    const getSortDate = (client: Client): Date => {
-      if (client.createdAt) {
-        const d = new Date(client.createdAt);
-        if (!isNaN(d.getTime())) return d;
-      }
-      if (client.date) {
-        const d = new Date(client.date);
-        if (!isNaN(d.getTime())) return d;
-      }
-      return new Date(0);
-    };
-
-    result.sort((a, b) => {
-      switch (sortOption) {
-        case "name_asc":
-          return (a.name || "").localeCompare(b.name || "", "es", {
-            sensitivity: "base",
-          });
-        case "name_desc":
-          return (b.name || "").localeCompare(a.name || "", "es", {
-            sensitivity: "base",
-          });
-        case "quotes_desc":
-          return (b.quotesCount ?? 0) - (a.quotesCount ?? 0);
-        case "recent":
-        default: {
-          const dateA = getSortDate(a).getTime();
-          const dateB = getSortDate(b).getTime();
-          return dateB - dateA;
-        }
-      }
-    });
-
-    return result;
-  }, [clients, searchQuery, sortOption]);
-
-  const syncCompanyForNewClient = async (companyName: string, logo?: string) => {
-    if (!supabase) return;
-    const trimmedName = companyName.trim();
-    if (!trimmedName) return;
-
-    // Check if company exists
-    const { data: existingCompanies, error } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('name', trimmedName)
-      .limit(1);
-
-    if (error) {
-      console.error("Error checking company:", error);
       return;
     }
 
-    if (!existingCompanies || existingCompanies.length === 0) {
-      // Create new company
-      await supabase.from('companies').insert({
-        name: trimmedName,
-        employees_count: 1,
-        logo: logo || null
-      });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // Check if admin
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      setIsAdmin(profile?.role === 'admin');
+      setCurrentUser(user.id);
     } else {
-      // Update existing company
-      const company = existingCompanies[0];
-      const updateData: any = {
-        employees_count: (company.employees_count || 0) + 1
-      };
-      if (logo && !company.logo) {
-        updateData.logo = logo;
-      }
-      
-      await supabase
-        .from('companies')
-        .update(updateData)
-        .eq('id', company.id);
+      setLoading(false);
     }
   };
 
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const fetchData = async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
-      if (!supabase) {
-        toast.error("No se pudo conectar a la base de datos");
-        return;
-      }
+      // 1. Fetch Users (Profiles) for member mapping and selection
+      const { data: profiles } = await supabase.from('profiles').select('*');
+      const profilesMap = (profiles || []).reduce((acc: any, p: any) => {
+        acc[p.id] = p;
+        return acc;
+      }, {});
+      setAvailableUsers(profiles || []);
 
-      const newClient = {
-        name: newClientData.name,
-        company: newClientData.company,
-        date: new Date().toISOString(),
-        location: `${newClientData.region}, ${newClientData.country}`,
-        status: "en_proceso",
-        service_type: newClientData.serviceType,
-        logo: newClientData.logo,
-        phone: `${newClientData.phoneCode} ${newClientData.phoneNumber}`,
-        email: newClientData.email,
-        quotes_count: 0
-      };
-      
-      const { error } = await supabase.from('clients').insert(newClient);
-      
-      if (error) throw error;
-      
-      await syncCompanyForNewClient(newClientData.company, newClientData.logo);
-      
-      setIsCreateModalOpen(false);
-      // Reset form
-      setNewClientData({
-        name: "",
-        company: "",
-        country: "",
-        region: "",
-        logo: "",
-        phoneCode: "+52",
-        phoneNumber: "",
-        email: "",
-        serviceType: "Carga General"
-      });
-      setCompanySelectionMode("new");
-      toast.success("Cliente creado exitosamente");
-    } catch (error) {
-      console.error("Error creating client:", error);
-      toast.error("Error al crear el cliente");
-    }
-  };
+      // 2. Fetch Workspaces
+      let query = supabase.from('workspaces').select(`
+        *,
+        workspace_members (
+          user_id,
+          role
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-  const updateClientStatus = async (clientId: string, newStatus: Client['status']) => {
-    try {
-      if (!supabase) return;
+      // If not admin, RLS policies will restrict automatically, but we can be explicit if needed
+      // RLS is already set up to show workspaces user is member of.
       
-      const { error } = await supabase
-        .from('clients')
-        .update({ status: newStatus })
-        .eq('id', clientId);
-        
-      if (error) throw error;
-      
-      toast.success("Estado actualizado");
-    } catch (error) {
-      console.error("Error updating status:", error);
-      toast.error("Error al actualizar el estado");
-    }
-  };
-
-  const handleDeleteClient = async (clientId: string) => {
-    try {
-      if (!supabase) return;
-      
-      const confirmDelete = window.confirm("¿Quieres eliminar este cliente?");
-      if (!confirmDelete) return;
-      
-      const { error } = await supabase
-        .from('clients')
-        .delete()
-        .eq('id', clientId);
-        
-      if (error) throw error;
-      
-      toast.success("Cliente eliminado");
-    } catch (error) {
-      console.error("Error deleting client:", error);
-      toast.error("Error al eliminar el cliente");
-    }
-  };
-
-  const openEditClient = (client: Client) => {
-    let country = "";
-    let region = "";
-    if (client.location) {
-      const parts = client.location.split(",").map((p) => p.trim());
-      if (parts.length >= 2) {
-        region = parts[0];
-        country = parts.slice(1).join(", ");
-      }
-    }
-
-    let phoneCode = "+52";
-    let phoneNumber = "";
-    if (client.phone) {
-      const segments = client.phone.split(" ").filter(Boolean);
-      if (segments.length > 0 && segments[0].startsWith("+")) {
-        phoneCode = segments[0];
-        phoneNumber = segments.slice(1).join("").replace(/\D/g, "").slice(0, 10);
-      } else {
-        phoneNumber = client.phone.replace(/\D/g, "").slice(0, 10);
-      }
-    }
-
-    setEditClientData({
-      name: client.name,
-      company: client.company,
-      country,
-      region,
-      logo: client.logo || "",
-      phoneCode,
-      phoneNumber,
-      email: client.email || "",
-      serviceType: client.serviceType || "Carga General",
-    });
-    setEditingClient(client);
-  };
-
-  const handleUpdateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (!editingClient) return;
-      if (!supabase) {
-        toast.error("No se pudo conectar a la base de datos");
-        return;
-      }
-
-      const updatedClient = {
-        name: editClientData.name,
-        company: editClientData.company,
-        location: `${editClientData.region}, ${editClientData.country}`,
-        service_type: editClientData.serviceType,
-        logo: editClientData.logo,
-        phone: `${editClientData.phoneCode} ${editClientData.phoneNumber}`,
-        email: editClientData.email,
-      };
-
-      const { error } = await supabase
-        .from('clients')
-        .update(updatedClient)
-        .eq('id', editingClient.id);
+      const { data: wsData, error } = await query;
 
       if (error) throw error;
-      
-      await syncCompanyForNewClient(editClientData.company, editClientData.logo);
 
-      setEditingClient(null);
-      toast.success("Cliente actualizado exitosamente");
+      // Map profiles to members
+      const workspacesData = wsData || [];
+      const formattedWorkspaces: Workspace[] = workspacesData.map((ws: any) => ({
+        ...ws,
+        members: (ws.workspace_members || []).map((m: any) => ({
+          ...m,
+          profile: profilesMap[m.user_id]
+        }))
+      }));
+
+      setWorkspaces(formattedWorkspaces);
+
+    } catch (error: any) {
+      console.error("Error fetching workspaces:", error);
+      toast.error("Error al cargar los equipos: " + (error.message || "Error desconocido"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateWorkspace = async () => {
+    if (!supabase) {
+      toast.error("No se pudo conectar a la base de datos");
+      return;
+    }
+
+    if (!newName || !newBase) {
+      toast.error("Nombre y Base son requeridos");
+      return;
+    }
+
+    try {
+      // 1. Create Workspace
+      const { data: ws, error: wsError } = await supabase
+        .from('workspaces')
+        .insert({
+          name: newName,
+          base: newBase,
+          created_by: currentUser
+        })
+        .select()
+        .single();
+
+      if (wsError) throw wsError;
+
+      // 2. Add Members (Admin is automatically added? Maybe not, let's add explicitly if selected)
+      // Always add the creator as admin member
+      const membersToAdd = [...new Set([...selectedUsers, currentUser])].map(uid => ({
+        workspace_id: ws.id,
+        user_id: uid,
+        role: uid === currentUser ? 'admin' : 'member'
+      }));
+
+      const { error: memberError } = await supabase
+        .from('workspace_members')
+        .insert(membersToAdd);
+
+      if (memberError) throw memberError;
+
+      toast.success("Workspace creado exitosamente");
+      setIsCreateOpen(false);
+      setNewName("");
+      setNewBase("");
+      setSelectedUsers([]);
+      fetchData(); // Refresh
+
+    } catch (error: any) {
+      console.error("Error creating workspace:", error);
+      toast.error("Error al crear el workspace: " + error.message);
+    }
+  };
+
+  const handleDeleteWorkspace = async (id: string) => {
+    if (!supabase) {
+      toast.error("No se pudo conectar a la base de datos");
+      return;
+    }
+
+    if (!confirm("¿Estás seguro de eliminar este workspace?")) return;
+    try {
+      const { error } = await supabase.from('workspaces').delete().eq('id', id);
+      if (error) throw error;
+      toast.success("Workspace eliminado");
+      fetchData();
     } catch (error) {
-      console.error("Error updating client:", error);
-      toast.error("Error al actualizar el cliente");
+      toast.error("Error al eliminar");
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completado": return "bg-green-100 text-green-700 border-green-200";
-      case "en_proceso": return "bg-amber-100 text-amber-700 border-amber-200";
-      case "sin_exito": return "bg-red-100 text-red-700 border-red-200";
-      default: return "bg-gray-100 text-gray-700 border-gray-200";
-    }
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "completado": return <CheckCircle2 className="h-3 w-3" />;
-      case "en_proceso": return <Clock className="h-3 w-3" />;
-      case "sin_exito": return <AlertCircle className="h-3 w-3" />;
-      default: return null;
-    }
+  // Helper to generate avatar URL if missing
+  const getAvatarUrl = (profile?: UserProfile) => {
+    if (profile?.avatar_url) return profile.avatar_url;
+    const name = profile?.full_name || profile?.email || "Usuario";
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=128`;
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto bg-white min-h-screen font-sans relative">
-      <div className="flex gap-6 items-start">
-        <div className="w-48 border-r border-gray-100 pr-4 sticky top-8 self-start">
-          <div className="mb-4 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-            Secciones
-          </div>
-          <div className="space-y-1.5">
-            <button
-              type="button"
-              onClick={() => setActiveSection("clientes")}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                activeSection === "clientes"
-                  ? "bg-black text-white"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <User className="h-4 w-4" />
-              <span>Clientes</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSection("empresas")}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                activeSection === "empresas"
-                  ? "bg-black text-white"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <Building2 className="h-4 w-4" />
-              <span>Empresas</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSection("graficos")}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                activeSection === "graficos"
-                  ? "bg-black text-white"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span>Gráficos</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open("/dashboard/chat?context=clientes", "_blank")}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors mt-4"
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span>Asistente IA</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1">
-          {activeSection === "clientes" && (
-            <>
-              <div className="flex items-center justify-between mb-6">
-                <h1 className="text-xl font-bold text-gray-900">Todos los Clientes</h1>
-                <button 
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors flex items-center gap-2"
-                >
-                  Nuevo Cliente
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Metrics Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Total Clientes</span>
-                   <div className="text-2xl font-bold text-gray-900">{clientMetrics.total}</div>
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight text-gray-900">Equipos y Workspaces</h2>
+        {isAdmin && (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-black hover:bg-gray-800 text-white gap-2">
+                <Plus className="w-4 h-4" />
+                Crear Workspace
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Crear Nuevo Equipo</DialogTitle>
+                <DialogDescription>
+                  Define un nuevo espacio de trabajo y asigna sus miembros iniciales.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Nombre del Workspace</Label>
+                  <Input
+                    id="name"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Ej. Operaciones Manzanillo"
+                  />
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Activos</span>
-                   <div className="text-2xl font-bold text-green-600">{clientMetrics.active}</div>
-                </div>
-                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Nuevos este mes</span>
-                   <div className="text-2xl font-bold text-blue-600">{clientMetrics.newThisMonth}</div>
-                </div>
-              </div>
-
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={sortOption}
-                    onValueChange={(value) =>
-                      setSortOption(value as "recent" | "name_asc" | "name_desc" | "quotes_desc")
-                    }
-                  >
-                    <SelectTrigger className="w-[180px] h-8 rounded-full border-gray-200 text-xs">
-                      <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-gray-500" />
-                      <SelectValue placeholder="Ordenar por" />
+                <div className="grid gap-2">
+                  <Label htmlFor="base">Base Operativa</Label>
+                  <Select value={newBase} onValueChange={setNewBase}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una base" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="recent">Más recientes</SelectItem>
-                      <SelectItem value="name_asc">Nombre A-Z</SelectItem>
-                      <SelectItem value="name_desc">Nombre Z-A</SelectItem>
-                      <SelectItem value="quotes_desc">Más cotizaciones</SelectItem>
+                      <SelectItem value="Manzanillo">Manzanillo</SelectItem>
+                      <SelectItem value="Puebla">Puebla</SelectItem>
+                      <SelectItem value="Altamira">Altamira</SelectItem>
+                      <SelectItem value="Veracruz">Veracruz</SelectItem>
+                      <SelectItem value="General">General</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="relative w-full md:w-64">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar por nombre, empresa o correo"
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-full focus:outline-none focus:ring-1 focus:ring-black focus:border-black placeholder:text-gray-400"
-                  />
+                <div className="grid gap-2">
+                  <Label>Asignar Miembros</Label>
+                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                    <div className="space-y-4">
+                      {availableUsers.map((user) => (
+                        <div key={user.id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`user-${user.id}`}
+                            checked={selectedUsers.includes(user.id)}
+                            onChange={() => toggleUserSelection(user.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
+                          />
+                          <label
+                            htmlFor={`user-${user.id}`}
+                            className="flex flex-1 items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={getAvatarUrl(user)} />
+                              <AvatarFallback>{user.full_name?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{user.full_name || user.email}</span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </div>
               </div>
-
-              <div className="w-full">
-                {loading ? (
-                  <div className="py-12 text-center text-gray-400 text-sm">
-                    Cargando clientes...
-                  </div>
-                ) : clients.length === 0 ? (
-                  <div className="py-12 text-center text-gray-400 text-sm">
-                    No hay clientes registrados. Haz clic en "Nuevo Cliente" para empezar.
-                  </div>
-                ) : filteredAndSortedClients.length === 0 ? (
-                  <div className="py-12 text-center text-gray-400 text-sm">
-                    No se encontraron clientes con la búsqueda u orden seleccionados.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {filteredAndSortedClients.map((client) => (
-                      <div
-                        key={client.id}
-                        onClick={() => setSelectedClient(client)}
-                        className="w-full h-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all group cursor-pointer relative flex flex-col"
-                      >
-                        <div className="flex-1">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-gray-500 font-bold text-xs overflow-hidden ${client.logo ? "bg-white" : "bg-gray-100"}`}>
-                              {client.logo ? (
-                                <img src={client.logo} alt={client.company} className="w-full h-full object-contain" />
-                              ) : (
-                                (client.company?.slice(0, 2)?.toUpperCase() || "—")
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-semibold text-gray-900 truncate group-hover:underline">
-                                {client.name || ""}
-                              </div>
-                              <div className="text-xs text-gray-500 truncate">
-                                {client.company || ""}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="relative flex-shrink-0">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMenuClientId(menuClientId === client.id ? null : client.id);
-                              }}
-                              className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                            {menuClientId === client.id && (
-                              <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEditClient(client);
-                                    setMenuClientId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    setMenuClientId(null);
-                                    await handleDeleteClient(client.id);
-                                  }}
-                                  className="w-full px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50"
-                                >
-                                  Borrar
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <Calendar className="h-3 w-3" />
-                            <span>{client.date || ""}</span>
-                          </div>
-                          <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium border flex items-center gap-1 ${getStatusColor(client.status)}`}>
-                            {getStatusIcon(client.status)}
-                            <span className="capitalize">{client.status?.replace('_', ' ') || "Desconocido"}</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5 text-xs text-gray-600 mb-3">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-gray-400" />
-                            <span className="truncate">{client.location || ""}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-gray-400" />
-                            <span className="truncate">{client.phone ?? ""}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3 text-gray-400" />
-                            <span className="truncate">{client.email ?? ""}</span>
-                          </div>
-                        </div>
-                        </div>
-
-                        <div className="mt-auto -mx-4 -mb-4 px-4 py-3 bg-[#e40014] border-t border-[#e40014] rounded-b-xl flex items-center justify-between">
-                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-white text-[11px] font-medium text-[#e40014]">
-                            {client.serviceType || ""}
-                          </span>
-                          <div className="flex items-center gap-3 text-[11px] text-white/90">
-                            <div className="flex items-center gap-1">
-                              <Calculator className="h-3 w-3" />
-                              <span>{client.quotesCount ?? 0} cotizaciones</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <FileText className="h-3 w-3" />
-                              <span>{client.reports?.length ?? 0} reportes</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {activeSection === "empresas" && (
-            <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h1 className="text-xl font-bold text-gray-900">Empresas</h1>
-              </div>
-              <div className="flex-1">
-                {loadingCompanies ? (
-                  <div className="py-12 text-center text-gray-400 text-sm">
-                    Cargando empresas...
-                  </div>
-                ) : companies.length === 0 ? (
-                  <div className="py-12 text-center text-gray-400 text-sm">
-                    Aún no hay empresas registradas. Crea un cliente para empezar.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {companies.map((company) => {
-                      const companyLogo = company.logo || companyLogos[company.name];
-                      return (
-                        <div
-                          key={company.id}
-                          className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all"
-                        >
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-gray-500 font-bold text-xs overflow-hidden ${companyLogo ? "bg-white" : "bg-gray-100"}`}>
-                              {companyLogo ? (
-                                <img src={companyLogo} alt={company.name} className="w-full h-full object-contain" />
-                              ) : (
-                                company.name.slice(0, 2).toUpperCase()
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-gray-900 truncate">
-                                {company.name}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="pt-2 border-t border-gray-100 text-xs text-gray-600 flex items-center justify-between">
-                            <span className="font-medium">Clientes</span>
-                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-[11px] font-medium text-gray-800">
-                              {company.employeesCount} {company.employeesCount === 1 ? "cliente" : "clientes"}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeSection === "graficos" && (
-            <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between mb-8">
-                <h1 className="text-xl font-bold text-gray-900">Gráficos</h1>
-              </div>
-              <ClientsCharts clients={clients} />
-            </div>
-          )}
-        </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+                <Button onClick={handleCreateWorkspace} className="bg-black text-white hover:bg-gray-800">Crear Equipo</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
-      {/* 5. Client Details Modal (Right Drawer style) */}
-      {selectedClient && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity"
-            onClick={() => setSelectedClient(null)}
-          />
-          
-          {/* Drawer Content */}
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
-            <button 
-              onClick={() => setSelectedClient(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div className="mt-8">
-              <div className="flex items-center gap-4 mb-6">
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-gray-500 font-bold text-xl shadow-inner overflow-hidden ${selectedClient.logo ? "bg-white" : "bg-gray-100"}`}>
-                  {selectedClient.logo ? (
-                    <img src={selectedClient.logo} alt={selectedClient.company} className="w-full h-full object-contain" />
-                  ) : (
-                    selectedClient.company.substring(0, 2).toUpperCase()
-                  )}
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">{selectedClient.name}</h2>
-                  <p className="text-sm text-gray-500">{selectedClient.company}</p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-400" />
-                    Información General
-                  </h3>
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Ubicación</span>
-                      <span className="font-medium text-gray-900 flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> {selectedClient.location}
-                      </span>
-                    </div>
-                    {selectedClient.phone && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Teléfono</span>
-                        <span className="font-medium text-gray-900 flex items-center gap-1">
-                          <Phone className="h-3 w-3" /> {selectedClient.phone}
-                        </span>
-                      </div>
-                    )}
-                    {selectedClient.email && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Correo</span>
-                        <span className="font-medium text-gray-900 flex items-center gap-1">
-                          <Mail className="h-3 w-3" /> {selectedClient.email}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Fecha de Registro</span>
-                      <span className="font-medium text-gray-900 flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> {selectedClient.date}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Tipo de Servicio</span>
-                      <span className="font-medium text-gray-900">{selectedClient.serviceType}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
+      {workspaces.length === 0 ? (
+        <div className="col-span-full flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg border-gray-200 bg-gray-50/50">
+          <Briefcase className="h-12 w-12 text-gray-300 mb-3" />
+          <h3 className="text-lg font-medium text-gray-900">No hay workspaces asignados</h3>
+          <p className="text-sm text-gray-500 max-w-sm mt-1">
+            {isAdmin 
+              ? "Crea un nuevo espacio de trabajo para comenzar." 
+              : "Contacta a un administrador para ser asignado a un equipo."}
+          </p>
         </div>
-      )}
-
-      {/* 6. Edit Client Modal */}
-      {editingClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-            onClick={() => setEditingClient(null)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Editar Cliente</h2>
-              <button 
-                onClick={() => setEditingClient(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleUpdateClient} className="space-y-4">
-              {/* Logo Upload */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Logo de la Empresa</label>
-                <div className="flex items-center gap-3">
-                  <div className="relative flex-1">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleEditLogoChange}
-                      className="hidden"
-                      id="edit-logo-upload"
-                    />
-                    <label
-                      htmlFor="edit-logo-upload"
-                      className="flex items-center gap-2 w-full px-3 py-2 border border-gray-200 border-dashed rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
-                    >
-                      <Upload className="h-4 w-4" />
-                      {editClientData.logo ? "Logo seleccionado" : "Subir logo (imagen)"}
-                    </label>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {workspaces.map((ws) => (
+            <Card key={ws.id} className="hover:shadow-md transition-shadow relative group">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-teal-600" />
+                      {ws.name}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {ws.base}
+                    </CardDescription>
                   </div>
-                  {editClientData.logo && (
-                    <div className="w-10 h-10 rounded-lg border border-gray-200 overflow-hidden shrink-0">
-                      <img src={editClientData.logo} alt="Preview" className="w-full h-full object-cover" />
-                    </div>
-                  )}
+                  <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200">
+                    {ws.members?.length || 0} miembros
+                  </Badge>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Nombre del Contacto</label>
-                  <input 
-                    required
-                    type="text" 
-                    value={editClientData.name}
-                    onChange={(e) => setEditClientData({...editClientData, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black"
-                    placeholder="Ej. Juan Pérez"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Empresa</label>
-                  <input 
-                    required
-                    type="text" 
-                    value={editClientData.company}
-                    onChange={(e) => setEditClientData({...editClientData, company: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black"
-                    placeholder="Ej. Transportes SAC"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Teléfono</label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={editClientData.phoneCode}
-                      onValueChange={(value) => setEditClientData({...editClientData, phoneCode: value})}
-                    >
-                      <SelectTrigger className="w-[100px]">
-                        <SelectValue placeholder="Código" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="+52">🇲🇽 +52</SelectItem>
-                        <SelectItem value="+1">🇺🇸 +1</SelectItem>
-                        <SelectItem value="+57">🇨🇴 +57</SelectItem>
-                        <SelectItem value="+51">🇵🇪 +51</SelectItem>
-                        <SelectItem value="+54">🇦🇷 +54</SelectItem>
-                        <SelectItem value="+56">🇨🇱 +56</SelectItem>
-                        <SelectItem value="+34">🇪🇸 +34</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                      <input 
-                        type="tel" 
-                        maxLength={10}
-                        value={editClientData.phoneNumber}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                          setEditClientData({...editClientData, phoneNumber: value});
-                        }}
-                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black"
-                        placeholder="123 456 7890"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Correo electrónico</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                    <input 
-                      type="email" 
-                      value={editClientData.email}
-                      onChange={(e) => setEditClientData({...editClientData, email: e.target.value})}
-                      className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black"
-                      placeholder="correo@ejemplo.com"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">País</label>
-                  <Select
-                    value={editClientData.country}
-                    onValueChange={(value) => setEditClientData({...editClientData, country: value, region: ""})}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar país" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(LOCATIONS).map((country) => (
-                        <SelectItem key={country} value={country}>{country}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Estado / Región</label>
-                  <Select
-                    value={editClientData.region}
-                    onValueChange={(value) => setEditClientData({...editClientData, region: value})}
-                    disabled={!editClientData.country}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {editClientData.country && LOCATIONS[editClientData.country as keyof typeof LOCATIONS]?.map((region) => (
-                        <SelectItem key={region} value={region}>{region}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Tipo de Carga</label>
-                <Select
-                  value={editClientData.serviceType}
-                  onValueChange={(value) => setEditClientData({ ...editClientData, serviceType: value })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccionar tipo de carga" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Carga General">Carga General</SelectItem>
-                    <SelectItem value="Carga Contenerizada">Carga Contenerizada</SelectItem>
-                    <SelectItem value="Carga Mixta">Carga Mixta</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setEditingClient(null)}
-                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
-                >
-                  Guardar cambios
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 7. Create Client Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsCreateModalOpen(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Nuevo Cliente</h2>
-              <button 
-                onClick={() => setIsCreateModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleCreateClient} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Nombre del Contacto</label>
-                  <input 
-                    required
-                    type="text" 
-                    value={newClientData.name}
-                    onChange={(e) => setNewClientData({...newClientData, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black"
-                    placeholder="Ej. Juan Pérez"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Empresa</label>
-                  <div className="space-y-2">
-                    <Select
-                      value={
-                        companySelectionMode === "existing" && newClientData.company
-                          ? newClientData.company
-                          : "__new__"
-                      }
-                      onValueChange={(value) => {
-                        if (value === "__new__") {
-                          setCompanySelectionMode("new");
-                          setNewClientData((prev) => ({
-                            ...prev,
-                            company: "",
-                            logo: "",
-                          }));
-                        } else {
-                          setCompanySelectionMode("existing");
-                          setNewClientData((prev) => ({
-                            ...prev,
-                            company: value,
-                            logo: companyLogos[value] || prev.logo,
-                          }));
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Seleccionar empresa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {uniqueCompanyNames.map((name) => (
-                          <SelectItem key={name} value={name}>
-                            {name}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="__new__">Nueva empresa</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {companySelectionMode === "new" && (
-                      <div className="space-y-2">
-                        <input
-                          required
-                          type="text"
-                          value={newClientData.company}
-                          onChange={(e) =>
-                            setNewClientData({
-                              ...newClientData,
-                              company: e.target.value,
-                            })
-                          }
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black"
-                          placeholder="Ej. Transportes SAC"
-                        />
-                        <div className="space-y-1.5">
-                          <div className="text-xs font-medium text-gray-600">
-                            Logo de la nueva empresa
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="relative flex-1">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleLogoChange}
-                                className="hidden"
-                                id="logo-upload"
-                              />
-                              <label
-                                htmlFor="logo-upload"
-                                className="flex items-center gap-2 w-full px-3 py-2 border border-gray-200 border-dashed rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
-                              >
-                                <Upload className="h-4 w-4" />
-                                {newClientData.logo
-                                  ? "Logo seleccionado"
-                                  : "Subir logo (imagen)"}
-                              </label>
-                            </div>
-                            {newClientData.logo && (
-                              <div className="w-10 h-10 rounded-lg border border-gray-200 overflow-hidden shrink-0">
-                                <img
-                                  src={newClientData.logo}
-                                  alt="Preview"
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            )}
-                          </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wider flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      Miembros del Equipo
+                    </h4>
+                    <div className="flex -space-x-2 overflow-hidden py-1 pl-2">
+                      {ws.members.length > 0 ? (
+                        ws.members.slice(0, 5).map((m) => (
+                          <Avatar key={m.user_id} className="inline-block border-2 border-white w-8 h-8 ring-2 ring-white">
+                            <AvatarImage src={getAvatarUrl(m.profile)} />
+                            <AvatarFallback className="bg-gray-200 text-[10px] text-gray-600">
+                              {m.profile?.full_name?.charAt(0).toUpperCase() || "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">Sin miembros</span>
+                      )}
+                      {ws.members.length > 5 && (
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white bg-gray-100 text-[10px] font-medium text-gray-500 ring-2 ring-white">
+                          +{ws.members.length - 5}
                         </div>
-                      </div>
-                    )}
-
-                    {companySelectionMode === "existing" && newClientData.logo && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">Logo de la empresa:</span>
-                        <div className="w-8 h-8 rounded-lg border border-gray-200 overflow-hidden shrink-0">
-                          <img
-                            src={newClientData.logo}
-                            alt={newClientData.company}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Phone and Email */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Teléfono</label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={newClientData.phoneCode}
-                      onValueChange={(value) => setNewClientData({...newClientData, phoneCode: value})}
-                    >
-                      <SelectTrigger className="w-[100px]">
-                        <SelectValue placeholder="Código" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="+52">🇲🇽 +52</SelectItem>
-                        <SelectItem value="+1">🇺🇸 +1</SelectItem>
-                        <SelectItem value="+57">🇨🇴 +57</SelectItem>
-                        <SelectItem value="+51">🇵🇪 +51</SelectItem>
-                        <SelectItem value="+54">🇦🇷 +54</SelectItem>
-                        <SelectItem value="+56">🇨🇱 +56</SelectItem>
-                        <SelectItem value="+34">🇪🇸 +34</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                      <input 
-                        type="tel" 
-                        maxLength={10}
-                        value={newClientData.phoneNumber}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                          setNewClientData({...newClientData, phoneNumber: value});
-                        }}
-                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black"
-                        placeholder="123 456 7890"
-                      />
+                      )}
                     </div>
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Correo Electrónico</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                    <input 
-                      type="email" 
-                      value={newClientData.email}
-                      onChange={(e) => setNewClientData({...newClientData, email: e.target.value})}
-                      className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black"
-                      placeholder="contacto@empresa.com"
-                    />
+
+                  <div className="pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(ws.created_at), "d MMM, yyyy", { locale: es })}
+                    </div>
+                    {isAdmin && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteWorkspace(ws.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">País</label>
-                  <Select
-                    value={newClientData.country}
-                    onValueChange={(value) => setNewClientData({...newClientData, country: value, region: ""})}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar País" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(LOCATIONS).map((country) => (
-                        <SelectItem key={country} value={country}>{country}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Estado / Región</label>
-                  <Select
-                    value={newClientData.region}
-                    onValueChange={(value) => setNewClientData({...newClientData, region: value})}
-                    disabled={!newClientData.country}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {newClientData.country && LOCATIONS[newClientData.country as keyof typeof LOCATIONS]?.map((region) => (
-                        <SelectItem key={region} value={region}>{region}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Tipo de Carga</label>
-                <Select
-                  value={newClientData.serviceType}
-                  onValueChange={(value) => setNewClientData({ ...newClientData, serviceType: value })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Seleccionar tipo de carga" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Carga General">Carga General</SelectItem>
-                    <SelectItem value="Carga Contenerizada">Carga Contenerizada</SelectItem>
-                    <SelectItem value="Carga Mixta">Carga Mixta</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
-                >
-                  Crear Cliente
-                </button>
-              </div>
-            </form>
-          </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
-
     </div>
   );
 }
